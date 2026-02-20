@@ -399,22 +399,78 @@ function previewLangChange(lang) {
 }
 
 /* ================================================
-   DATABASE
+   DATABASE — قاعدة البيانات مع ضمان سلامة البيانات
 ================================================ */
-let DB = JSON.parse(localStorage.getItem("POSDZ")) || {
-  users:    [{ name: "Admin", pin: "1234", role: "manager", immutable: true }],
-  settings: {
-    name:"POS DZ", phone:"", addr:"", welcome:"",
-    currency:"دج", lang:"ar",
-    dateFormat:"DD-MM-YYYY", timeFormat:"24", logo:"",
-    printer:"default", paperSize:"80mm", copies:1,
-    printLogo:false, printShopName:true, printPhone:true,
-    printWelcome:true, printBarcode:false, printCustBarcode:false,
-    invoiceNum:1, autoBackup:false, lastBackup:""
-  },
-  families:[], brands:[], stock:[], cart:[],
-  customers:[], debts:[], sales:[]
+
+/* المستخدم الافتراضي المضمون دائماً */
+const DEFAULT_ADMIN = { name: "Admin", pin: "1234", role: "manager", immutable: true };
+
+/* القيم الافتراضية الكاملة للإعدادات */
+const DEFAULT_SETTINGS = {
+  name:"POS DZ", phone:"", addr:"", welcome:"",
+  currency:"دج", lang:"ar",
+  dateFormat:"DD-MM-YYYY", timeFormat:"24", logo:"",
+  printer:"default", paperSize:"80mm", copies:1,
+  printLogo:false, printShopName:true, printPhone:true,
+  printWelcome:true, printBarcode:false, printCustBarcode:false,
+  invoiceNum:1, autoBackup:false, lastBackup:"",
+  soundAdd:false, soundPay:false, barcodeReader:false,
+  fontFamily:"Cairo", fontSize:15, appTheme:"default"
 };
+
+/* تحميل قاعدة البيانات مع ضمان سلامتها */
+function loadDB() {
+  let raw = null;
+  try { raw = JSON.parse(localStorage.getItem("POSDZ")); } catch(e) { raw = null; }
+
+  /* إذا لم تكن هناك بيانات — قاعدة بيانات جديدة نظيفة */
+  if (!raw || typeof raw !== "object") {
+    return {
+      users:    [{ ...DEFAULT_ADMIN }],
+      settings: { ...DEFAULT_SETTINGS },
+      families:[], brands:[], stock:[], cart:[],
+      customers:[], debts:[], sales:[]
+    };
+  }
+
+  /* ضمان وجود مصفوفة المستخدمين */
+  if (!Array.isArray(raw.users)) raw.users = [];
+
+  /* ضمان وجود Admin دائماً — لا يمكن حذفه أو فقدانه */
+  const hasAdmin = raw.users.some(u => u.immutable === true);
+  if (!hasAdmin) {
+    raw.users.unshift({ ...DEFAULT_ADMIN });
+  } else {
+    /* التأكد من أن Admin يملك الصلاحيات الصحيحة */
+    const adminIdx = raw.users.findIndex(u => u.immutable === true);
+    if (adminIdx !== -1) {
+      raw.users[adminIdx] = {
+        ...raw.users[adminIdx],
+        role: "manager",
+        immutable: true
+      };
+    }
+  }
+
+  /* ضمان سلامة الإعدادات — دمج القيم الناقصة مع الافتراضية */
+  raw.settings = Object.assign({}, DEFAULT_SETTINGS, raw.settings || {});
+
+  /* ضمان وجود المصفوفات الأساسية */
+  raw.families  = Array.isArray(raw.families)  ? raw.families  : [];
+  raw.brands    = Array.isArray(raw.brands)    ? raw.brands    : [];
+  raw.stock     = Array.isArray(raw.stock)     ? raw.stock     : [];
+  raw.cart      = Array.isArray(raw.cart)      ? raw.cart      : [];
+  raw.customers = Array.isArray(raw.customers) ? raw.customers : [];
+  raw.debts     = Array.isArray(raw.debts)     ? raw.debts     : [];
+  raw.sales     = Array.isArray(raw.sales)     ? raw.sales     : [];
+
+  return raw;
+}
+
+let DB = loadDB();
+
+/* حفظ فوري بعد التحميل لضمان البيانات المُصلحة */
+(function(){ try { localStorage.setItem("POSDZ", JSON.stringify(DB)); } catch(e){} })();
 
 /* ================================================
    DOM ELEMENTS
@@ -447,7 +503,15 @@ const totalEl        = document.getElementById("total");
 /* ================================================
    UTILITY
 ================================================ */
-function saveDB() { localStorage.setItem("POSDZ", JSON.stringify(DB)); }
+function saveDB() {
+  /* ضمان Admin قبل كل عملية حفظ */
+  if (!Array.isArray(DB.users)) DB.users = [];
+  const hasAdmin = DB.users.some(u => u.immutable === true);
+  if (!hasAdmin) DB.users.unshift({ ...DEFAULT_ADMIN });
+  try { localStorage.setItem("POSDZ", JSON.stringify(DB)); } catch(e) {
+    console.warn("POSDZ: تعذّر الحفظ في localStorage", e);
+  }
+}
 function getCurrency() { return DB.settings.currency || "دج"; }
 function formatPrice(val) { return Number(val).toFixed(2) + " " + getCurrency(); }
 
@@ -1158,15 +1222,17 @@ function confirmPartialReset() {
 
 function confirmReset() {
   safeConfirm("⚠️ تحذير: سيتم حذف جميع البيانات وإعادة البرنامج لحالته الأصلية. هذا الإجراء لا يمكن التراجع عنه.", function(){
-    const freshDB={
-      users:[{name:"Admin",pin:"1234",role:"manager",immutable:true}],
-      settings:{name:"POS DZ",phone:"",addr:"",welcome:"",currency:"دج",lang:DB.settings.lang||"ar",dateFormat:"DD-MM-YYYY",timeFormat:"24",logo:"",printer:"default",paperSize:"80mm",copies:1,printLogo:false,printShopName:true,printPhone:true,printWelcome:true,printBarcode:false,printCustBarcode:false,invoiceNum:1,autoBackup:false,lastBackup:""},
-      families:[],brands:[],stock:[],cart:[],customers:[],debts:[],sales:[]
+    const freshDB = {
+      users:    [{ ...DEFAULT_ADMIN }],
+      settings: { ...DEFAULT_SETTINGS, lang: DB.settings.lang || "ar" },
+      families:[], brands:[], stock:[], cart:[],
+      customers:[], debts:[], sales:[]
     };
-    DB=freshDB; saveDB();
+    DB = freshDB;
+    saveDB();
     localStorage.removeItem("POSDZ_LOGGED");
-    showToast(t("msg_reset_done"),"success");
-    setTimeout(()=>location.reload(),1500);
+    showToast(t("msg_reset_done"), "success");
+    setTimeout(()=>location.reload(), 1500);
   });
 }
 
@@ -1630,9 +1696,14 @@ function editUser(index){
   };
 }
 function deleteUser(index){
-  if (DB.users[index].immutable){ showToast(t("msg_cant_delete"),"error"); return; }
+  const user = DB.users[index];
+  if (!user) return;
+  if (user.immutable){ showToast(t("msg_cant_delete"),"error"); return; }
   safeConfirm(t("msg_confirm_delete_user"), function(){
-    DB.users.splice(index,1); saveDB(); renderUsersTable(); renderUserSelect(); renderAlerts();
+    DB.users.splice(index,1);
+    /* ضمان بقاء Admin بعد أي حذف */
+    if (!DB.users.some(u=>u.immutable)) DB.users.unshift({ ...DEFAULT_ADMIN });
+    saveDB(); renderUsersTable(); renderUserSelect(); renderAlerts();
     showToast("✅ تم حذف المستخدم","success");
   });
 }
@@ -2053,7 +2124,7 @@ function startClock(){
 }
 
 /* ================================================
-   INIT
+   INIT — التهيئة الآمنة الشاملة
 ================================================ */
 addUserForm.addEventListener("submit", addUser);
 addUserInAlerts.addEventListener("submit", addUserInAlertsFunc);
@@ -2069,13 +2140,37 @@ renderFamilyList();
 renderBrandList();
 loadAppearanceSettings();
 
-const logged=JSON.parse(localStorage.getItem("POSDZ_LOGGED"));
-if(logged){
-  loginScreen.style.display="none";
-  mainApp.style.display="block";
-  applyHeader(); showSale(); startClock();
-  checkAutoBackup();
-} else {
-  loginScreen.style.display="flex";
-  mainApp.style.display="none";
-}
+/* التحقق من جلسة المستخدم المحفوظة */
+(function initSession() {
+  let logged = null;
+  try { logged = JSON.parse(localStorage.getItem("POSDZ_LOGGED")); } catch(e) { logged = null; }
+
+  /* التحقق من أن المستخدم المحفوظ لا يزال موجوداً في قاعدة البيانات */
+  if (logged && logged.name) {
+    const stillExists = DB.users.find(u => u.name === logged.name && u.pin === logged.pin);
+    if (!stillExists) {
+      localStorage.removeItem("POSDZ_LOGGED");
+      logged = null;
+    }
+  }
+
+  if (logged) {
+    loginScreen.style.display = "none";
+    mainApp.style.display     = "block";
+    applyHeader(); showSale(); startClock();
+    checkAutoBackup();
+  } else {
+    loginScreen.style.display = "flex";
+    mainApp.style.display     = "none";
+    /* تلميح بيانات الدخول الافتراضية إن لم يكن هناك مستخدم آخر */
+    setTimeout(()=>{
+      if (DB.users.length === 1 && DB.users[0].immutable) {
+        const lm = document.getElementById("loginMsg");
+        if (lm && !lm.textContent) {
+          lm.textContent = "المستخدم: Admin — PIN: 1234";
+          lm.className = "login-msg success";
+        }
+      }
+    }, 600);
+  }
+})();
