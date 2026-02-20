@@ -676,7 +676,7 @@ function safeTextPrompt(label, defaultVal, onConfirm) {
   inp.onkeydown = (e) => { if(e.key==="Enter"){ const v=inp.value; close(); onConfirm(v); } };
   overlay.onclick = (e) => { if(e.target===overlay) close(); };
 }
-================================================ */
+/* ================================================ */
 function playSound(type) {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
