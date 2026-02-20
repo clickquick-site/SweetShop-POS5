@@ -1,6 +1,5 @@
 
 
-
 /* ================================================
    TRANSLATIONS — نظام الترجمة
 ================================================ */
@@ -646,6 +645,8 @@ async function searchForPrinters() {
 }
 
 /* ================================================
+   LOGIN
+================================================ */
 function renderUserSelect() {
   userSelect.innerHTML = `<option value="">— ${t("login_title")} —</option>`;
   DB.users.forEach(u => {
