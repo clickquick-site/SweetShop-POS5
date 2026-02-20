@@ -1862,12 +1862,97 @@ function pay(){
   if(!isNaN(paidVal)&&paidVal<total){ showToast(t("msg_low_balance"),"error"); return; }
   const change=!isNaN(paidVal)?paidVal-total:0;
   deductStock();
-  DB.sales.push(buildSale("كامل",paidVal||total));
+  const saleData=buildSale("كامل",paidVal||total);
+  DB.sales.push(saleData);
   DB.cart=[]; document.getElementById("paid").value="";
   saveDB();
   triggerSound('pay');
   showToast(change>0?t("msg_change")+formatPrice(change):t("msg_sold"),"success");
   renderSaleStock(); renderReports();
+  showPrintModal(saleData, change);
+}
+
+/* ================================================
+   PRINT MODAL
+================================================ */
+function showPrintModal(saleData, change) {
+  const s = DB.settings;
+  const itemsHTML = (saleData.items || []).map(item =>
+    `<div class="pm-inv-item"><span class="pm-inv-name">${item.name}</span><span class="pm-inv-qty">x${item.qty}</span><span class="pm-inv-price">${formatPrice(item.price * item.qty)}</span></div>`
+  ).join("");
+  const logoHTML  = s.printLogo && s.logo ? `<img src="${s.logo}" class="pm-inv-logo" alt="logo">` : "";
+  const nameHTML  = s.printShopName ? `<div class="pm-inv-shop">${s.name||"POS DZ"}</div>` : "";
+  const phoneHTML = s.printPhone && s.phone ? `<div class="pm-inv-phone">  ${s.phone}</div>` : "";
+  const welcomeHTML = s.printWelcome && s.welcome ? `<div class="pm-inv-welcome">${s.welcome}</div>` : "";
+  const changeHTML = change > 0 ? `<div class="pm-inv-change">الباقي: <strong>${formatPrice(change)}</strong></div>` : "";
+  const customerHTML = saleData.customer && saleData.customer !== "—"
+    ? `<div class="pm-inv-row"><span>الزبون:</span><span>${saleData.customer}</span></div>` : "";
+
+  const invoiceBodyHTML = `
+    <div class="pm-inv-paper" id="pmPrintArea">
+      <div class="pm-inv-header">${logoHTML}${nameHTML}${phoneHTML}</div>
+      <div class="pm-inv-divider"></div>
+      <div class="pm-inv-row"><span>التاريخ:</span><span>${formatDate(saleData.date)}</span></div>
+      <div class="pm-inv-row"><span>رقم الفاتورة:</span><span>#${saleData.invoiceNum}</span></div>
+      ${customerHTML}
+      <div class="pm-inv-divider"></div>
+      <div class="pm-inv-items-head"><span>السلعة</span><span>ك</span><span>المبلغ</span></div>
+      ${itemsHTML}
+      <div class="pm-inv-divider"></div>
+      <div class="pm-inv-total"><span>المجموع:</span><span>${formatPrice(saleData.total)}</span></div>
+      <div class="pm-inv-paid"><span>المدفوع:</span><span>${formatPrice(saleData.paid)}</span></div>
+      ${changeHTML}${welcomeHTML}
+    </div>`;
+
+  let overlay = document.getElementById("printModalOverlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "printModalOverlay";
+    overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99998;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)";
+    overlay.innerHTML = `
+      <div style="background:var(--surface,#fff);border-radius:20px;padding:24px;max-width:420px;width:94%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,0.3)">
+        <div style="text-align:center;margin-bottom:16px">
+          <div style="font-size:20px;font-weight:800;color:var(--primary,#6366f1)"> فاتورة البيع</div>
+          <div style="font-size:13px;color:var(--text3,#94a3b8);margin-top:4px">تم تسجيل البيع بنجاح</div>
+        </div>
+        <div id="pmInvoiceBody"></div>
+        <div style="display:flex;gap:10px;margin-top:20px">
+          <button id="pmBtnPrint" style="flex:1;padding:13px;background:linear-gradient(135deg,#6366f1,#a855f7);color:white;border-radius:12px;font-weight:800;font-size:15px;border:none;cursor:pointer"> طباعة</button>
+          <button id="pmBtnClose" style="flex:1;padding:13px;background:var(--bg2,#e8eaf2);color:var(--text,#0f172a);border-radius:12px;font-weight:800;font-size:15px;border:none;cursor:pointer">X اغلاق</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+  }
+
+  document.getElementById("pmInvoiceBody").innerHTML = invoiceBodyHTML;
+  overlay.style.display = "flex";
+
+  document.getElementById("pmBtnClose").onclick = () => { overlay.style.display = "none"; };
+  document.getElementById("pmBtnPrint").onclick = () => {
+    const printArea = document.getElementById("pmPrintArea");
+    const pw = window.open("","_blank","width=400,height=600");
+    pw.document.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>فاتورة</title>
+    <style>
+      body{font-family:Cairo,sans-serif;margin:0;padding:16px;direction:rtl;font-size:13px}
+      .pm-inv-paper{max-width:300px;margin:0 auto}
+      .pm-inv-header{text-align:center;margin-bottom:8px}
+      .pm-inv-logo{max-height:60px;margin-bottom:6px}
+      .pm-inv-shop{font-size:17px;font-weight:800;margin-bottom:2px}
+      .pm-inv-phone{font-size:12px;color:#555}
+      .pm-inv-divider{border-top:1px dashed #999;margin:8px 0}
+      .pm-inv-row{display:flex;justify-content:space-between;margin:3px 0;font-size:12px}
+      .pm-inv-items-head{display:flex;justify-content:space-between;font-weight:700;font-size:12px;margin:4px 0}
+      .pm-inv-item{display:flex;justify-content:space-between;margin:3px 0;font-size:12px}
+      .pm-inv-name{flex:1}.pm-inv-qty{width:28px;text-align:center}.pm-inv-price{text-align:left;min-width:70px}
+      .pm-inv-total{display:flex;justify-content:space-between;font-weight:800;font-size:14px;margin:4px 0}
+      .pm-inv-paid{display:flex;justify-content:space-between;font-size:12px;margin:3px 0;color:#555}
+      .pm-inv-change{text-align:center;margin-top:6px;font-size:13px;color:#059669;font-weight:700}
+      .pm-inv-welcome{text-align:center;margin-top:10px;font-size:12px;color:#555;font-style:italic}
+    </style></head><body>${printArea.outerHTML}<script>window.onload=()=>{window.print();window.close();}<\/script></body></html>`);
+    pw.document.close();
+  };
+
+  overlay.onclick = (e) => { if(e.target===overlay) overlay.style.display="none"; };
 }
 function partial(){
   if(!DB.cart.length){ showToast(t("msg_no_cart"),"error"); return; }
@@ -2167,8 +2252,8 @@ loadAppearanceSettings();
       if (DB.users.length === 1 && DB.users[0].immutable) {
         const lm = document.getElementById("loginMsg");
         if (lm && !lm.textContent) {
-          lm.textContent = "المستخدم: Admin — PIN: 1234";
-          lm.className = "login-msg success";
+          lm.textContent = "مرحباً 👋 الرجاء اختيار المستخدم وإدخال رمز PIN";
+          lm.className = "login-msg info";
         }
       }
     }, 600);
