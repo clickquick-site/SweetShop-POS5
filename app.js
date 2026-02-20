@@ -512,14 +512,106 @@ window.alert = function(msg) {
   showToast(msg, type);
 };
 
-window.confirm = function(msg) {
-  return window._nativeConfirm ? window._nativeConfirm(msg) : window.__confirm(msg);
-};
-window.__confirm = window.confirm.bind(window);
-const _origConfirm = Function.prototype.call.bind(window.__proto__.__proto__.constructor.prototype.confirm || window.__proto__.confirm) ;
+/* window.confirm — الإبقاء على النسخة الأصلية بدون تعديل */
 
 /* ================================================
-   SOUND SYSTEM — نظام الأصوات
+   SAFE CONFIRM — نافذة تأكيد مخصصة موثوقة
+================================================ */
+function safeConfirm(msg, onYes) {
+  // إنشاء المودال إذا لم يكن موجوداً
+  let overlay = document.getElementById("safeConfirmOverlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "safeConfirmOverlay";
+    overlay.style.cssText = `
+      position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;
+      display:flex;align-items:center;justify-content:center;
+      backdrop-filter:blur(4px);animation:fadeIn .15s ease;
+    `;
+    overlay.innerHTML = `
+      <div style="background:var(--surface,#fff);border-radius:16px;padding:28px 28px 22px;max-width:360px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.25);border:1px solid var(--border,#e2e5f0);text-align:center">
+        <div style="font-size:28px;margin-bottom:12px">⚠️</div>
+        <div id="safeConfirmMsg" style="font-size:15px;font-weight:600;color:var(--text,#0f172a);line-height:1.6;margin-bottom:22px"></div>
+        <div style="display:flex;gap:10px;justify-content:center">
+          <button id="safeConfirmNo"  style="flex:1;padding:11px;background:var(--bg2,#e8eaf2);color:var(--text,#0f172a);border-radius:10px;font-weight:700;font-size:14px;border:none;cursor:pointer">إلغاء</button>
+          <button id="safeConfirmYes" style="flex:1;padding:11px;background:linear-gradient(135deg,#ef4444,#dc2626);color:white;border-radius:10px;font-weight:700;font-size:14px;border:none;cursor:pointer">تأكيد الحذف</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+  }
+  document.getElementById("safeConfirmMsg").textContent = msg;
+  overlay.style.display = "flex";
+  const close = () => { overlay.style.display = "none"; };
+  document.getElementById("safeConfirmNo").onclick  = close;
+  document.getElementById("safeConfirmYes").onclick = () => { close(); onYes(); };
+  overlay.onclick = (e) => { if (e.target === overlay) close(); };
+}
+
+/* نافذة إدخال مخصصة — بديل window.prompt */
+function safePrompt(msg, onConfirm, defaultVal="") {
+  let overlay = document.getElementById("safePromptOverlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "safePromptOverlay";
+    overlay.style.cssText = `
+      position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;
+      display:flex;align-items:center;justify-content:center;
+      backdrop-filter:blur(4px);
+    `;
+    overlay.innerHTML = `
+      <div style="background:var(--surface,#fff);border-radius:16px;padding:28px 28px 22px;max-width:360px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.25);border:1px solid var(--border,#e2e5f0)">
+        <div id="safePromptMsg" style="font-size:15px;font-weight:600;color:var(--text,#0f172a);margin-bottom:14px;line-height:1.6"></div>
+        <input id="safePromptInput" type="number" min="0" step="0.01"
+          style="width:100%;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border,#e2e5f0);font-size:15px;font-family:inherit;margin-bottom:16px;outline:none;box-sizing:border-box">
+        <div style="display:flex;gap:10px">
+          <button id="safePromptNo"  style="flex:1;padding:11px;background:var(--bg2,#e8eaf2);color:var(--text,#0f172a);border-radius:10px;font-weight:700;font-size:14px;border:none;cursor:pointer">إلغاء</button>
+          <button id="safePromptYes" style="flex:1;padding:11px;background:linear-gradient(135deg,#10b981,#059669);color:white;border-radius:10px;font-weight:700;font-size:14px;border:none;cursor:pointer">تأكيد</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+  }
+  document.getElementById("safePromptMsg").textContent = msg;
+  const inp = document.getElementById("safePromptInput");
+  inp.value = defaultVal;
+  overlay.style.display = "flex";
+  setTimeout(()=>inp.focus(), 100);
+  const close = () => { overlay.style.display = "none"; inp.value = ""; };
+  document.getElementById("safePromptNo").onclick  = close;
+  document.getElementById("safePromptYes").onclick = () => { const v=inp.value; close(); onConfirm(v); };
+  inp.onkeydown = (e) => { if(e.key==="Enter"){ const v=inp.value; close(); onConfirm(v); } };
+  overlay.onclick = (e) => { if(e.target===overlay) close(); };
+}
+
+/* نافذة إدخال نصي مخصصة */
+function safeTextPrompt(label, defaultVal, onConfirm) {
+  let overlay = document.getElementById("safeTextPromptOverlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "safeTextPromptOverlay";
+    overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)";
+    overlay.innerHTML = `
+      <div style="background:var(--surface,#fff);border-radius:16px;padding:28px 28px 22px;max-width:360px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.25);border:1px solid var(--border,#e2e5f0)">
+        <div id="safeTextLabel" style="font-size:15px;font-weight:700;color:var(--text,#0f172a);margin-bottom:12px"></div>
+        <input id="safeTextInput" type="text"
+          style="width:100%;padding:12px 14px;border-radius:10px;border:1.5px solid var(--border,#e2e5f0);font-size:15px;font-family:inherit;margin-bottom:16px;outline:none;box-sizing:border-box">
+        <div style="display:flex;gap:10px">
+          <button id="safeTextNo"  style="flex:1;padding:11px;background:var(--bg2,#e8eaf2);color:var(--text,#0f172a);border-radius:10px;font-weight:700;font-size:14px;border:none;cursor:pointer">إلغاء</button>
+          <button id="safeTextYes" style="flex:1;padding:11px;background:linear-gradient(135deg,#6366f1,#a855f7);color:white;border-radius:10px;font-weight:700;font-size:14px;border:none;cursor:pointer">✅ حفظ</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+  }
+  document.getElementById("safeTextLabel").textContent = label;
+  const inp = document.getElementById("safeTextInput");
+  inp.value = defaultVal || "";
+  overlay.style.display = "flex";
+  setTimeout(()=>{ inp.focus(); inp.select(); }, 100);
+  const close = () => { overlay.style.display = "none"; };
+  document.getElementById("safeTextNo").onclick  = close;
+  document.getElementById("safeTextYes").onclick = () => { const v=inp.value; close(); onConfirm(v); };
+  inp.onkeydown = (e) => { if(e.key==="Enter"){ const v=inp.value; close(); onConfirm(v); } };
+  overlay.onclick = (e) => { if(e.target===overlay) close(); };
+}
 ================================================ */
 function playSound(type) {
   try {
@@ -1054,29 +1146,28 @@ function checkAutoBackup() {
   if (!last||!isSameDay(new Date(last),new Date())) manualBackup();
 }
 function confirmPartialReset() {
-  const ans = window.prompt("هل تريد مسح المبيعات والديون وسجل العمليات فقط؟\nأسماء المنتجات والماركات والعائلات ستبقى.\n\nاكتب 'نعم' للتأكيد:");
-  if (!ans || ans.trim() !== "نعم") { showToast(t("msg_reset_cancel"), "info"); return; }
-  DB.sales = [];
-  DB.debts  = [];
-  DB.customers.forEach(c => { c.debts = []; });
-  saveDB();
-  showToast("✅ تم المسح الجزئي — أسماء المنتجات والماركات محفوظة.", "success");
-  renderReports();
+  safeConfirm("هل تريد مسح المبيعات والديون وسجل العمليات فقط؟\nأسماء المنتجات والماركات والعائلات ستبقى.", function(){
+    DB.sales = [];
+    DB.debts  = [];
+    DB.customers.forEach(c => { c.debts = []; });
+    saveDB();
+    showToast("✅ تم المسح الجزئي — أسماء المنتجات والماركات محفوظة.", "success");
+    renderReports();
+  });
 }
 
 function confirmReset() {
-  const confirmWord=DB.settings.lang==="fr"?"oui":DB.settings.lang==="en"?"yes":"نعم";
-  const ans=window.prompt(t("msg_reset_confirm"));
-  if (!ans||ans.trim().toLowerCase()!==confirmWord) { showToast(t("msg_reset_cancel"),"info"); return; }
-  const freshDB={
-    users:[{name:"Admin",pin:"1234",role:"manager",immutable:true}],
-    settings:{name:"POS DZ",phone:"",addr:"",welcome:"",currency:"دج",lang:DB.settings.lang||"ar",dateFormat:"DD-MM-YYYY",timeFormat:"24",logo:"",printer:"default",paperSize:"80mm",copies:1,printLogo:false,printShopName:true,printPhone:true,printWelcome:true,printBarcode:false,printCustBarcode:false,invoiceNum:1,autoBackup:false,lastBackup:""},
-    families:[],brands:[],stock:[],cart:[],customers:[],debts:[],sales:[]
-  };
-  DB=freshDB; saveDB();
-  localStorage.removeItem("POSDZ_LOGGED");
-  showToast(t("msg_reset_done"),"success");
-  setTimeout(()=>location.reload(),1500);
+  safeConfirm("⚠️ تحذير: سيتم حذف جميع البيانات وإعادة البرنامج لحالته الأصلية. هذا الإجراء لا يمكن التراجع عنه.", function(){
+    const freshDB={
+      users:[{name:"Admin",pin:"1234",role:"manager",immutable:true}],
+      settings:{name:"POS DZ",phone:"",addr:"",welcome:"",currency:"دج",lang:DB.settings.lang||"ar",dateFormat:"DD-MM-YYYY",timeFormat:"24",logo:"",printer:"default",paperSize:"80mm",copies:1,printLogo:false,printShopName:true,printPhone:true,printWelcome:true,printBarcode:false,printCustBarcode:false,invoiceNum:1,autoBackup:false,lastBackup:""},
+      families:[],brands:[],stock:[],cart:[],customers:[],debts:[],sales:[]
+    };
+    DB=freshDB; saveDB();
+    localStorage.removeItem("POSDZ_LOGGED");
+    showToast(t("msg_reset_done"),"success");
+    setTimeout(()=>location.reload(),1500);
+  });
 }
 
 /* ================================================
@@ -1133,19 +1224,23 @@ function addFamily(){
 }
 function editFamily(id){
   const fam=DB.families.find(f=>f.id===id); if(!fam) return;
-  const newName=window.prompt(t("edit_btn")+" — "+fam.name+":", fam.name);
-  if (!newName||newName.trim()===fam.name) return;
-  if (DB.families.find(f=>f.name.toLowerCase()===newName.trim().toLowerCase()&&f.id!==id)){
-    showToast(t("msg_family_exists"),"error"); return;
-  }
-  fam.name=newName.trim(); saveDB();
-  renderFamilyList(); populateStockSelects(); populateBrandFamilySelect();
+  safeTextPrompt(t("edit_btn")+" — "+fam.name, fam.name, function(newName){
+    if (!newName||newName.trim()===fam.name) return;
+    if (DB.families.find(f=>f.name.toLowerCase()===newName.trim().toLowerCase()&&f.id!==id)){
+      showToast(t("msg_family_exists"),"error"); return;
+    }
+    fam.name=newName.trim(); saveDB();
+    renderFamilyList(); populateStockSelects(); populateBrandFamilySelect();
+    showToast("✅ تم تعديل العائلة","success");
+  });
 }
 function deleteFamily(id){
-  if (!window.confirm(t("msg_confirm_delete_family"))) return;
-  DB.families=DB.families.filter(f=>f.id!==id);
-  DB.brands=DB.brands.filter(b=>b.familyId!==id);
-  saveDB(); renderFamilyList(); renderBrandList(); populateStockSelects(); populateBrandFamilySelect();
+  safeConfirm(t("msg_confirm_delete_family"), function(){
+    DB.families=DB.families.filter(f=>f.id!==id);
+    DB.brands=DB.brands.filter(b=>b.familyId!==id);
+    saveDB(); renderFamilyList(); renderBrandList(); populateStockSelects(); populateBrandFamilySelect();
+    showToast("✅ تم حذف العائلة","success");
+  });
 }
 function renderFamilyList(filter=""){
   const list=document.getElementById("familyList");
@@ -1196,14 +1291,18 @@ function addBrand(){
 }
 function editBrand(id){
   const brand=DB.brands.find(b=>b.id===id); if(!brand) return;
-  const newName=window.prompt(t("edit_btn")+" — "+brand.name+":", brand.name);
-  if (!newName||newName.trim()===brand.name) return;
-  brand.name=newName.trim(); saveDB(); renderBrandList(); populateStockSelects();
+  safeTextPrompt(t("edit_btn")+" — "+brand.name, brand.name, function(newName){
+    if (!newName||newName.trim()===brand.name) return;
+    brand.name=newName.trim(); saveDB(); renderBrandList(); populateStockSelects();
+    showToast("✅ تم تعديل الماركة","success");
+  });
 }
 function deleteBrand(id){
-  if (!window.confirm(t("msg_confirm_delete_brand"))) return;
-  DB.brands=DB.brands.filter(b=>b.id!==id);
-  saveDB(); renderBrandList(); populateStockSelects();
+  safeConfirm(t("msg_confirm_delete_brand"), function(){
+    DB.brands=DB.brands.filter(b=>b.id!==id);
+    saveDB(); renderBrandList(); populateStockSelects();
+    showToast("✅ تم حذف الماركة","success");
+  });
 }
 function renderBrandList(filter=""){
   const list=document.getElementById("brandList");
@@ -1344,15 +1443,20 @@ function saveItem(){
 
 function editItem(index){
   const item=DB.stock[index];
-  const newPrice=window.prompt(t("price_label")+":", item.price);
-  const newQty=window.prompt(t("qty_label")+":", item.qty);
-  if (newPrice!==null&&!isNaN(newPrice)) item.price=parseFloat(newPrice);
-  if (newQty!==null&&!isNaN(newQty))     item.qty=parseInt(newQty);
-  saveDB(); renderStock();
+  safePrompt(t("price_label")+" (الحالي: "+item.price+"):", function(newPrice){
+    if (newPrice!==""&&!isNaN(newPrice)) item.price=parseFloat(newPrice);
+    safePrompt(t("qty_label")+" (الحالي: "+item.qty+"):", function(newQty){
+      if (newQty!==""&&!isNaN(newQty)) item.qty=parseInt(newQty);
+      saveDB(); renderStock();
+      showToast("✅ تم تحديث المنتج","success");
+    }, String(item.qty));
+  }, String(item.price));
 }
 function deleteItem(index){
-  if (!window.confirm(t("msg_confirm_delete"))) return;
-  DB.stock.splice(index,1); saveDB(); renderStock();
+  safeConfirm(t("msg_confirm_delete"), function(){
+    DB.stock.splice(index,1); saveDB(); renderStock();
+    showToast("✅ تم حذف المنتج","success");
+  });
 }
 
 function renderStock(){
@@ -1437,7 +1541,10 @@ function renderCustomerList(){
   });
 }
 function deleteCustomer(index){
-  if (window.confirm(t("msg_confirm_delete_customer"))){ DB.customers.splice(index,1); saveDB(); renderCustomerList(); renderCustomerSelect(); }
+  safeConfirm(t("msg_confirm_delete_customer"), function(){
+    DB.customers.splice(index,1); saveDB(); renderCustomerList(); renderCustomerSelect();
+    showToast("✅ تم حذف الزبون","success");
+  });
 }
 
 /* ================================================
@@ -1469,36 +1576,65 @@ function addUser(e){
 }
 function editUser(index){
   const user = DB.users[index];
-  const nameIn  = window.prompt("✏️ اسم المستخدم الجديد:", user.name);
-  if (nameIn === null) return;
-  const pinIn   = window.prompt("🔑 PIN الجديد (4 أرقام):", "");
-  if (pinIn === null) return;
-  const newName = nameIn.trim() || user.name;
-  const newPin  = pinIn.trim();
-  if (newName !== user.name && DB.users.find((u,i) => u.name === newName && i !== index)) {
-    showToast(t("msg_user_exists"), "error"); return;
-  }
-  if (newPin && (newPin.length !== 4 || !/^\d+$/.test(newPin))) {
-    showToast(t("msg_pin_4"), "error"); return;
-  }
   const logged = JSON.parse(localStorage.getItem("POSDZ_LOGGED"));
-  let newRole = user.role;
-  if (logged && logged.role === "manager" && index !== DB.users.findIndex(u=>u.name===logged.name)) {
-    const roleIn = window.prompt("👤 الدور (manager / baker):", user.role);
-    if (roleIn && ["manager","baker"].includes(roleIn.trim())) newRole = roleIn.trim();
+  const isManager = logged && logged.role === "manager";
+  const canChangeRole = isManager && index !== DB.users.findIndex(u=>u.name===logged.name);
+
+  // مودال تعديل مخصص
+  let overlay = document.getElementById("editUserOverlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "editUserOverlay";
+    overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)";
+    document.body.appendChild(overlay);
   }
-  user.name = newName;
-  if (newPin) user.pin = newPin;
-  user.role = newRole;
-  if (logged && logged.name === (nameIn.trim() ? user.name : logged.name)) {
-    localStorage.setItem("POSDZ_LOGGED", JSON.stringify(user));
-  }
-  saveDB(); renderUsersTable(); renderUserSelect(); renderAlerts();
-  showToast("✅ تم تعديل المستخدم بنجاح", "success");
+  overlay.innerHTML = `
+    <div style="background:var(--surface,#fff);border-radius:16px;padding:28px;max-width:380px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.25);border:1px solid var(--border,#e2e5f0)">
+      <h3 style="margin:0 0 20px;font-size:17px;font-weight:800;color:var(--text,#0f172a)">✏️ تعديل المستخدم</h3>
+      <label style="display:block;font-size:12px;font-weight:700;color:var(--text2,#475569);margin-bottom:5px">اسم المستخدم</label>
+      <input id="euName" value="${user.name}" style="width:100%;padding:10px 12px;border-radius:8px;border:1.5px solid var(--border,#e2e5f0);font-size:14px;margin-bottom:12px;box-sizing:border-box">
+      <label style="display:block;font-size:12px;font-weight:700;color:var(--text2,#475569);margin-bottom:5px">PIN جديد (4 أرقام — اتركه فارغاً للإبقاء على الحالي)</label>
+      <input id="euPin" type="password" placeholder="****" maxlength="4" style="width:100%;padding:10px 12px;border-radius:8px;border:1.5px solid var(--border,#e2e5f0);font-size:14px;margin-bottom:12px;box-sizing:border-box">
+      ${canChangeRole ? `
+      <label style="display:block;font-size:12px;font-weight:700;color:var(--text2,#475569);margin-bottom:5px">الدور</label>
+      <select id="euRole" style="width:100%;padding:10px 12px;border-radius:8px;border:1.5px solid var(--border,#e2e5f0);font-size:14px;margin-bottom:16px;box-sizing:border-box">
+        <option value="baker" ${user.role==="baker"?"selected":""}>بائع</option>
+        <option value="manager" ${user.role==="manager"?"selected":""}>مدير</option>
+      </select>` : `<div style="margin-bottom:16px"></div>`}
+      <div style="display:flex;gap:10px">
+        <button id="euCancel" style="flex:1;padding:11px;background:var(--bg2,#e8eaf2);color:var(--text,#0f172a);border-radius:10px;font-weight:700;font-size:14px;border:none;cursor:pointer">إلغاء</button>
+        <button id="euSave"   style="flex:1;padding:11px;background:linear-gradient(135deg,#6366f1,#a855f7);color:white;border-radius:10px;font-weight:700;font-size:14px;border:none;cursor:pointer">💾 حفظ</button>
+      </div>
+    </div>`;
+  overlay.style.display = "flex";
+  const close = () => { overlay.style.display = "none"; };
+  document.getElementById("euCancel").onclick = close;
+  overlay.onclick = (e) => { if(e.target===overlay) close(); };
+  document.getElementById("euSave").onclick = () => {
+    const newName = document.getElementById("euName").value.trim() || user.name;
+    const newPin  = document.getElementById("euPin").value.trim();
+    const newRole = canChangeRole ? document.getElementById("euRole").value : user.role;
+    if (newName !== user.name && DB.users.find((u,i)=>u.name===newName&&i!==index)){
+      showToast(t("msg_user_exists"),"error"); return;
+    }
+    if (newPin && (newPin.length!==4||!/^\d+$/.test(newPin))){
+      showToast(t("msg_pin_4"),"error"); return;
+    }
+    user.name = newName;
+    if (newPin) user.pin = newPin;
+    user.role = newRole;
+    if (logged && logged.name === user.name) localStorage.setItem("POSDZ_LOGGED", JSON.stringify(user));
+    saveDB(); renderUsersTable(); renderUserSelect(); renderAlerts();
+    showToast("✅ تم تعديل المستخدم بنجاح","success");
+    close();
+  };
 }
 function deleteUser(index){
   if (DB.users[index].immutable){ showToast(t("msg_cant_delete"),"error"); return; }
-  if (window.confirm(t("msg_confirm_delete_user"))){ DB.users.splice(index,1); saveDB(); renderUsersTable(); renderUserSelect(); renderAlerts(); }
+  safeConfirm(t("msg_confirm_delete_user"), function(){
+    DB.users.splice(index,1); saveDB(); renderUsersTable(); renderUserSelect(); renderAlerts();
+    showToast("✅ تم حذف المستخدم","success");
+  });
 }
 function renderAlerts(){
   const alertList=document.getElementById("alertList");
@@ -1844,21 +1980,22 @@ function renderDebts(){
   });
 }
 function settleDebt(customerName){
-  const amount=window.prompt(t("settle_prompt"));
-  if(!amount||isNaN(amount)||Number(amount)<=0) return;
-  const pay=parseFloat(amount);
-  let remaining=pay;
-  (DB.debts||[]).forEach(d=>{
-    if(d.customer===customerName&&d.remaining>0&&remaining>0){
-      const deduct=Math.min(d.remaining,remaining);
-      d.remaining-=deduct; d.paid+=deduct; remaining-=deduct;
-    }
+  safePrompt(t("settle_prompt"), function(amount){
+    if(!amount||isNaN(amount)||Number(amount)<=0) return;
+    const pay=parseFloat(amount);
+    let remaining=pay;
+    (DB.debts||[]).forEach(d=>{
+      if(d.customer===customerName&&d.remaining>0&&remaining>0){
+        const deduct=Math.min(d.remaining,remaining);
+        d.remaining-=deduct; d.paid+=deduct; remaining-=deduct;
+      }
+    });
+    const customer=DB.customers.find(c=>c.name===customerName);
+    if(customer){ let r2=pay; (customer.debts||[]).forEach(d=>{ if(d.remaining>0&&r2>0){const x=Math.min(d.remaining,r2);d.remaining-=x;r2-=x;} }); }
+    saveDB();
+    showToast(t("settle_ok")+formatPrice(pay)+t("settle_from")+customerName,"success");
+    renderDebts();
   });
-  const customer=DB.customers.find(c=>c.name===customerName);
-  if(customer){ let r2=pay; (customer.debts||[]).forEach(d=>{ if(d.remaining>0&&r2>0){const x=Math.min(d.remaining,r2);d.remaining-=x;r2-=x;} }); }
-  saveDB();
-  showToast(t("settle_ok")+formatPrice(pay)+t("settle_from")+customerName,"success");
-  renderDebts();
 }
 function renderSalesLog(sales){
   const salesLog=document.getElementById("salesLog");
@@ -1883,26 +2020,22 @@ function renderSalesLog(sales){
 ================================================ */
 function clearSalesData(period) {
   const confirmMsg = period==="month" ? t("msg_clear_month_confirm") : t("msg_clear_year_confirm");
-  const ans = window.prompt(confirmMsg + "\n\nاكتب 'نعم' للتأكيد:");
-  const confirmWord = DB.settings.lang==="fr"?"oui": DB.settings.lang==="en"?"yes":"نعم";
-  if (!ans || ans.trim().toLowerCase() !== confirmWord) {
-    showToast(t("msg_clear_cancel"), "info"); return;
-  }
-  const now = new Date();
-  if (period === "month") {
-    DB.sales = (DB.sales||[]).filter(s=>!isSameMonth(new Date(s.date),now));
-    DB.debts  = (DB.debts||[]).filter(d=>!isSameMonth(new Date(d.date),now));
-  } else {
-    DB.sales = (DB.sales||[]).filter(s=>!isSameYear(new Date(s.date),now));
-    DB.debts  = (DB.debts||[]).filter(d=>!isSameYear(new Date(d.date),now));
-    // مسح الديون المرتبطة من الزبائن أيضاً
-    DB.customers.forEach(c=>{
-      if (c.debts) c.debts = c.debts.filter(d=>!isSameYear(new Date(d.date),now));
-    });
-  }
-  saveDB();
-  showToast(t("msg_clear_done"), "success");
-  renderReports();
+  safeConfirm(confirmMsg, function(){
+    const now = new Date();
+    if (period === "month") {
+      DB.sales = (DB.sales||[]).filter(s=>!isSameMonth(new Date(s.date),now));
+      DB.debts  = (DB.debts||[]).filter(d=>!isSameMonth(new Date(d.date),now));
+    } else {
+      DB.sales = (DB.sales||[]).filter(s=>!isSameYear(new Date(s.date),now));
+      DB.debts  = (DB.debts||[]).filter(d=>!isSameYear(new Date(d.date),now));
+      DB.customers.forEach(c=>{
+        if (c.debts) c.debts = c.debts.filter(d=>!isSameYear(new Date(d.date),now));
+      });
+    }
+    saveDB();
+    showToast(t("msg_clear_done"), "success");
+    renderReports();
+  });
 }
 
 /* ================================================
