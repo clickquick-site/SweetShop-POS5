@@ -1936,132 +1936,158 @@ function showPrintModal(saleData, change) {
       /* ضبط الورقة بحجم المحتوى فقط - بدون هامش زائد */
       @page {
         size: 80mm auto;
-        margin: 4mm 3mm;
+        margin: 0mm;
       }
-      * { box-sizing: border-box; }
-      body {
-        font-family: 'Arial', 'Helvetica Neue', sans-serif;
-        margin: 0;
-        padding: 0;
-        direction: rtl;
-        font-size: 14px;
+      * {
+        box-sizing: border-box;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 72mm;
+        max-width: 72mm;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 11pt;
         color: #000;
         background: #fff;
-        width: 80mm;
+        height: auto !important;
       }
       .pm-inv-paper {
-        width: 100%;
-        padding: 4px 6px 12px;
+        width: 72mm;
+        max-width: 72mm;
+        padding: 3mm 2mm 6mm 2mm;
+        overflow: hidden;
       }
-      /* رأس الفاتورة - اسم المتجر */
+      /* رأس الفاتورة */
       .pm-inv-header {
         text-align: center;
-        padding-bottom: 6px;
-        margin-bottom: 4px;
+        margin-bottom: 2mm;
       }
       .pm-inv-logo {
-        max-height: 55px;
-        margin-bottom: 4px;
+        max-height: 14mm;
+        margin: 0 auto 1mm;
         display: block;
-        margin-left: auto;
-        margin-right: auto;
       }
       .pm-inv-shop {
-        font-size: 20px;
+        font-size: 14pt;
         font-weight: 900;
-        letter-spacing: 1px;
-        margin-bottom: 2px;
+        letter-spacing: 0.5px;
+        margin-bottom: 1mm;
         color: #000;
+        text-transform: uppercase;
       }
       .pm-inv-phone {
-        font-size: 13px;
-        color: #222;
-        margin-top: 2px;
+        font-size: 9pt;
+        color: #000;
+        margin-top: 0.5mm;
+        font-weight: 600;
       }
       /* فاصل منقط */
       .pm-inv-divider {
         border: none;
-        border-top: 1.5px dashed #444;
-        margin: 6px 0;
+        border-top: 0.4mm dashed #000;
+        margin: 1.5mm 0;
+        width: 100%;
       }
       /* صفوف التاريخ ورقم الفاتورة */
       .pm-inv-row {
         display: flex;
         justify-content: space-between;
-        align-items: center;
-        margin: 4px 0;
-        font-size: 13px;
-        color: #111;
-        font-weight: 600;
+        align-items: baseline;
+        margin: 1mm 0;
+        font-size: 9pt;
+        color: #000;
+        font-weight: 700;
+        width: 100%;
+        overflow: hidden;
       }
+      .pm-inv-row span:first-child { white-space: nowrap; }
+      .pm-inv-row span:last-child  { white-space: nowrap; font-weight: 900; }
       /* رأس جدول السلع */
       .pm-inv-items-head {
         display: flex;
         justify-content: space-between;
         font-weight: 900;
-        font-size: 13px;
-        margin: 5px 0 3px;
-        padding-bottom: 3px;
-        border-bottom: 1px solid #333;
+        font-size: 9pt;
+        margin: 1.5mm 0 1mm;
+        padding-bottom: 1mm;
+        border-bottom: 0.3mm solid #000;
         color: #000;
+        width: 100%;
       }
+      .pm-inv-items-head span:nth-child(1) { flex: 1; }
+      .pm-inv-items-head span:nth-child(2) { width: 7mm; text-align: center; }
+      .pm-inv-items-head span:nth-child(3) { width: 18mm; text-align: left; }
       /* سطر كل سلعة */
       .pm-inv-item {
         display: flex;
         justify-content: space-between;
-        align-items: flex-start;
-        margin: 4px 0;
-        font-size: 13px;
-        color: #111;
-        line-height: 1.5;
+        align-items: baseline;
+        margin: 1mm 0;
+        font-size: 9pt;
+        color: #000;
+        line-height: 1.4;
+        width: 100%;
       }
-      .pm-inv-name { flex: 1; font-weight: 700; word-break: break-word; }
-      .pm-inv-qty  { width: 30px; text-align: center; font-weight: 700; }
-      .pm-inv-price{ min-width: 65px; text-align: left; font-weight: 700; }
+      .pm-inv-name  { flex: 1; font-weight: 700; word-break: break-word; padding-left: 1mm; }
+      .pm-inv-qty   { width: 7mm; text-align: center; font-weight: 700; white-space: nowrap; }
+      .pm-inv-price { width: 18mm; text-align: left; font-weight: 700; white-space: nowrap; }
       /* المجموع */
       .pm-inv-total {
         display: flex;
         justify-content: space-between;
         font-weight: 900;
-        font-size: 17px;
-        margin: 6px 0 3px;
+        font-size: 12pt;
+        margin: 2mm 0 1mm;
         color: #000;
+        width: 100%;
       }
+      .pm-inv-total span:last-child { white-space: nowrap; }
       /* المدفوع */
       .pm-inv-paid {
         display: flex;
         justify-content: space-between;
-        font-size: 13px;
-        margin: 3px 0;
-        color: #333;
-        font-weight: 600;
+        font-size: 9pt;
+        margin: 1mm 0;
+        color: #000;
+        font-weight: 700;
+        width: 100%;
       }
+      .pm-inv-paid span:last-child { white-space: nowrap; }
       /* الباقي */
       .pm-inv-change {
         text-align: center;
-        margin-top: 5px;
-        font-size: 14px;
+        margin-top: 2mm;
+        font-size: 10pt;
         color: #000;
         font-weight: 900;
-        border: 1.5px solid #000;
-        border-radius: 4px;
-        padding: 3px 6px;
+        border: 0.4mm solid #000;
+        border-radius: 1mm;
+        padding: 1mm 2mm;
+        width: 100%;
       }
       /* رسالة الترحيب */
       .pm-inv-welcome {
         text-align: center;
-        margin-top: 10px;
-        font-size: 13px;
-        color: #333;
+        margin-top: 2mm;
+        font-size: 9pt;
+        color: #000;
         font-weight: 700;
-        padding-top: 6px;
-        border-top: 1px dashed #444;
+        padding-top: 2mm;
+        border-top: 0.4mm dashed #000;
+        width: 100%;
       }
       /* منع الصفحة الثانية الفارغة */
-      html, body { height: auto !important; }
       @media print {
-        html, body { height: auto !important; }
-        .pm-inv-paper { page-break-after: avoid; page-break-inside: avoid; }
+        html, body { height: auto !important; overflow: hidden; }
+        .pm-inv-paper {
+          page-break-after: avoid;
+          page-break-inside: avoid;
+          orphans: 0;
+          widows: 0;
+        }
       }
     </style></head><body><div class="pm-inv-paper">${printArea.innerHTML}</div>
     <script>
