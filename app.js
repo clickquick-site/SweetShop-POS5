@@ -1930,25 +1930,145 @@ function showPrintModal(saleData, change) {
   document.getElementById("pmBtnClose").onclick = () => { overlay.style.display = "none"; };
   document.getElementById("pmBtnPrint").onclick = () => {
     const printArea = document.getElementById("pmPrintArea");
-    const pw = window.open("","_blank","width=400,height=600");
+    const pw = window.open("","_blank","width=450,height=700");
     pw.document.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>فاتورة</title>
     <style>
-      body{font-family:Cairo,sans-serif;margin:0;padding:16px;direction:rtl;font-size:13px}
-      .pm-inv-paper{max-width:300px;margin:0 auto}
-      .pm-inv-header{text-align:center;margin-bottom:8px}
-      .pm-inv-logo{max-height:60px;margin-bottom:6px}
-      .pm-inv-shop{font-size:17px;font-weight:800;margin-bottom:2px}
-      .pm-inv-phone{font-size:12px;color:#555}
-      .pm-inv-divider{border-top:1px dashed #999;margin:8px 0}
-      .pm-inv-row{display:flex;justify-content:space-between;margin:3px 0;font-size:12px}
-      .pm-inv-items-head{display:flex;justify-content:space-between;font-weight:700;font-size:12px;margin:4px 0}
-      .pm-inv-item{display:flex;justify-content:space-between;margin:3px 0;font-size:12px}
-      .pm-inv-name{flex:1}.pm-inv-qty{width:28px;text-align:center}.pm-inv-price{text-align:left;min-width:70px}
-      .pm-inv-total{display:flex;justify-content:space-between;font-weight:800;font-size:14px;margin:4px 0}
-      .pm-inv-paid{display:flex;justify-content:space-between;font-size:12px;margin:3px 0;color:#555}
-      .pm-inv-change{text-align:center;margin-top:6px;font-size:13px;color:#059669;font-weight:700}
-      .pm-inv-welcome{text-align:center;margin-top:10px;font-size:12px;color:#555;font-style:italic}
-    </style></head><body>${printArea.outerHTML}<script>window.onload=()=>{window.print();window.close();}<\/script></body></html>`);
+      /* ضبط الورقة بحجم المحتوى فقط - بدون هامش زائد */
+      @page {
+        size: 80mm auto;
+        margin: 4mm 3mm;
+      }
+      * { box-sizing: border-box; }
+      body {
+        font-family: 'Arial', 'Helvetica Neue', sans-serif;
+        margin: 0;
+        padding: 0;
+        direction: rtl;
+        font-size: 14px;
+        color: #000;
+        background: #fff;
+        width: 80mm;
+      }
+      .pm-inv-paper {
+        width: 100%;
+        padding: 4px 6px 12px;
+      }
+      /* رأس الفاتورة - اسم المتجر */
+      .pm-inv-header {
+        text-align: center;
+        padding-bottom: 6px;
+        margin-bottom: 4px;
+      }
+      .pm-inv-logo {
+        max-height: 55px;
+        margin-bottom: 4px;
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+      }
+      .pm-inv-shop {
+        font-size: 20px;
+        font-weight: 900;
+        letter-spacing: 1px;
+        margin-bottom: 2px;
+        color: #000;
+      }
+      .pm-inv-phone {
+        font-size: 13px;
+        color: #222;
+        margin-top: 2px;
+      }
+      /* فاصل منقط */
+      .pm-inv-divider {
+        border: none;
+        border-top: 1.5px dashed #444;
+        margin: 6px 0;
+      }
+      /* صفوف التاريخ ورقم الفاتورة */
+      .pm-inv-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 4px 0;
+        font-size: 13px;
+        color: #111;
+        font-weight: 600;
+      }
+      /* رأس جدول السلع */
+      .pm-inv-items-head {
+        display: flex;
+        justify-content: space-between;
+        font-weight: 900;
+        font-size: 13px;
+        margin: 5px 0 3px;
+        padding-bottom: 3px;
+        border-bottom: 1px solid #333;
+        color: #000;
+      }
+      /* سطر كل سلعة */
+      .pm-inv-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin: 4px 0;
+        font-size: 13px;
+        color: #111;
+        line-height: 1.5;
+      }
+      .pm-inv-name { flex: 1; font-weight: 700; word-break: break-word; }
+      .pm-inv-qty  { width: 30px; text-align: center; font-weight: 700; }
+      .pm-inv-price{ min-width: 65px; text-align: left; font-weight: 700; }
+      /* المجموع */
+      .pm-inv-total {
+        display: flex;
+        justify-content: space-between;
+        font-weight: 900;
+        font-size: 17px;
+        margin: 6px 0 3px;
+        color: #000;
+      }
+      /* المدفوع */
+      .pm-inv-paid {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        margin: 3px 0;
+        color: #333;
+        font-weight: 600;
+      }
+      /* الباقي */
+      .pm-inv-change {
+        text-align: center;
+        margin-top: 5px;
+        font-size: 14px;
+        color: #000;
+        font-weight: 900;
+        border: 1.5px solid #000;
+        border-radius: 4px;
+        padding: 3px 6px;
+      }
+      /* رسالة الترحيب */
+      .pm-inv-welcome {
+        text-align: center;
+        margin-top: 10px;
+        font-size: 13px;
+        color: #333;
+        font-weight: 700;
+        padding-top: 6px;
+        border-top: 1px dashed #444;
+      }
+      /* منع الصفحة الثانية الفارغة */
+      html, body { height: auto !important; }
+      @media print {
+        html, body { height: auto !important; }
+        .pm-inv-paper { page-break-after: avoid; page-break-inside: avoid; }
+      }
+    </style></head><body><div class="pm-inv-paper">${printArea.innerHTML}</div>
+    <script>
+      window.onload = function() {
+        setTimeout(function(){ window.print(); window.close(); }, 250);
+      };
+    <\/script></body></html>`);
     pw.document.close();
   };
 
