@@ -772,31 +772,58 @@ function addItemByBarcode(bc) {
 ================================================ */
 async function searchForPrinters() {
   const statusEl = document.getElementById("printerSearchStatus");
-  const select = document.getElementById("sPrinter");
-  if (statusEl) statusEl.textContent = "⏳ جارٍ البحث عن الطابعات...";
+  const select   = document.getElementById("sPrinter");
+  if (statusEl) statusEl.innerHTML = "⏳ جارٍ البحث عن الطابعات...";
+
   try {
-    if (window.BrowserPrintService || navigator.bluetooth) {
-      await new Promise(r => setTimeout(r, 1200));
+    /* ===== محاولة 1: Web Serial API (Chrome 89+) ===== */
+    if (navigator.serial) {
+      const ports = await navigator.serial.getPorts().catch(()=>[]);
+      if (ports.length > 0) {
+        select.innerHTML = "";
+        ports.forEach((p, i) => {
+          const o = document.createElement("option");
+          o.value = "serial_" + i;
+          const info = p.getInfo ? p.getInfo() : {};
+          o.textContent = info.usbVendorId
+            ? "طابعة USB — VID:" + info.usbVendorId.toString(16).toUpperCase()
+            : "منفذ تسلسلي #" + (i+1);
+          select.appendChild(o);
+        });
+        /* خيار الطابعة الافتراضية دائماً */
+        const def = document.createElement("option");
+        def.value = "default"; def.textContent = "الطابعة الافتراضية للنظام";
+        select.insertBefore(def, select.firstChild);
+        select.value = DB.settings.printer || "default";
+        if (statusEl) statusEl.innerHTML = "✅ تم الكشف عن <strong>" + ports.length + "</strong> طابعة عبر USB.";
+        showToast("✅ تم الكشف عن الطابعات", "success");
+        return;
+      }
     }
-    const printers = [
-      { value: "default", label: "الطابعة الافتراضية" },
-      { value: "thermal",  label: "طابعة حرارية (Thermal)" },
-      { value: "inkjet",   label: "طابعة عادية (Inkjet/Laser)" },
-    ];
-    if (window.__detectedPrinters && window.__detectedPrinters.length) {
-      window.__detectedPrinters.forEach(p => printers.push(p));
-    }
+
+    /* ===== محاولة 2: window.print() مع تحديد الطابعة عبر CSS ===== */
+    /* المتصفح سيفتح نافذة اختيار الطابعة تلقائياً */
     select.innerHTML = "";
-    printers.forEach(p => {
+    const printersList = [
+      { value: "default",  label: "🖨️ الطابعة الافتراضية للنظام" },
+      { value: "thermal",  label: "🔥 طابعة حرارية 80mm (XP-80C, POS-80)" },
+      { value: "thermal58",label: "🔥 طابعة حرارية 58mm" },
+      { value: "inkjet",   label: "💧 طابعة عادية (Inkjet/Laser)" },
+    ];
+    printersList.forEach(p => {
       const o = document.createElement("option");
       o.value = p.value; o.textContent = p.label;
       select.appendChild(o);
     });
     select.value = DB.settings.printer || "default";
-    if (statusEl) statusEl.textContent = "✅ تم الكشف عن الطابعات المتاحة. يقبل التطبيق جميع الطابعات.";
-    showToast("✅ تم البحث عن الطابعات", "success");
+
+    if (statusEl) statusEl.innerHTML =
+      "ℹ️ <strong>ملاحظة:</strong> المتصفح سيفتح قائمة الطابعات تلقائياً عند الطباعة.<br>" +
+      "لتعيين الطابعة الافتراضية مباشرة: افتح <strong>إعدادات Windows ← الطابعات</strong> وضع طابعتك الحرارية كافتراضية.";
+    showToast("✅ اختر نوع طابعتك من القائمة", "info");
+
   } catch(e) {
-    if (statusEl) statusEl.textContent = "⚠️ تعذّر الكشف التلقائي. يمكنك اختيار الطابعة يدوياً.";
+    if (statusEl) statusEl.textContent = "⚠️ تعذّر الكشف. اختر نوع الطابعة يدوياً من القائمة.";
   }
 }
 
@@ -1935,7 +1962,10 @@ function showPrintModal(saleData, change) {
     <style>
       /* ضبط الورقة بحجم المحتوى فقط - بدون هامش زائد */
       @page {
-        size: 80mm auto;
+        size: ${(()=>{
+          const pt = DB&&DB.settings&&DB.settings.printer;
+          return pt==='thermal58'?'58mm auto':'80mm auto';
+        })()};
         margin: 0mm;
       }
       * {
@@ -2092,10 +2122,21 @@ function showPrintModal(saleData, change) {
     </style></head><body><div class="pm-inv-paper">${printArea.innerHTML}</div>
     <script>
       window.onload = function() {
-        setTimeout(function(){ window.print(); window.close(); }, 250);
+        setTimeout(function(){
+          window.print();
+        }, 200);
+        // إغلاق النافذة تلقائياً بعد الطباعة أو إلغائها
+        window.addEventListener('afterprint', function() {
+          window.close();
+        });
+        // احتياطي: إغلاق بعد 8 ثوانٍ إذا لم يُغلق تلقائياً
+        setTimeout(function(){ if(!window.closed) window.close(); }, 8000);
       };
     <\/script></body></html>`);
     pw.document.close();
+    // إغلاق مودال الفاتورة تلقائياً فور الضغط على طباعة
+    const ov = document.getElementById('printModalOverlay');
+    if(ov) ov.style.display = 'none';
   };
 
   overlay.onclick = (e) => { if(e.target===overlay) overlay.style.display="none"; };
